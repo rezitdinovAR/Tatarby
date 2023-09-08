@@ -13,7 +13,7 @@ other = "other"
 languages_keyboard_text = {ru: 'Русский язык', tat: 'Татарча'}
 options_text = {
     "liked": {
-        ru: "Список избранно",
+        ru: "Список избранного",
         tat: "Сайланганнар исемлеге"
     },
     "advice": {
