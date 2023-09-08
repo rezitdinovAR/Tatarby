@@ -135,26 +135,7 @@ def callback_language(call):
 @bot.message_handler(content_types=['text'])
 def start_handler(message):
     pass
-    # if message.text == languages_keyboard_text[ru]:
-    #     users[message.from_user.id]["language"] = ru
-    #     ask_what_option_user_wants(message.from_user.id, ru)
-    # elif message.text == languages_keyboard_text[tat]:
-    #     users[message.from_user.id]["language"] = tat
-    #     ask_what_option_user_wants(message.from_user.id, tat)
-    # else:
-    #     if message.from_user.id not in users:
-    #         reg_new_user(message)
-    #     elif "language" in users[message.from_user.id]:
-    #         reg_new_user(message)
-    #     else:
-    #         language = users[message.from_user.id]["language"]
-    #
-    #         if message.text == options_keyboard_text[language][music]:
-    #             pass
-    #         if message.text == options_keyboard_text[language][talk]:
-    #             pass
-    #         if message.text == options_keyboard_text[language][other]:
-    #             pass
+
 
 
 if __name__ == '__main__':
