@@ -10,23 +10,40 @@ music = "music"
 talk = "talk"
 other = "other"
 
-
 languages_keyboard_text = {ru: 'Русский язык', tat: 'Татарча'}
-options_text = {ru: "Чё хочешь?", tat: "Чё хочешь [на татарском]?"}
-options_keyboard_text = {
-    ru: {
-        music: "Музыку",
-        talk: "Поговорить",
-        other: "Другое",
-
+options_text = {
+    "liked": {
+        ru: "Список избранно",
+        tat: ""
     },
-    tat: {
-        music: "Музыку",
-        talk: "Поговорить",
-        other: "Другое"
+    "advice": {
+        ru: "Посоветовать книгу",
+        tat: ""
+    },
+    "top": {
+        ru: "Популярные",
+        tat: ""
+    },
+    "search": {
+        ru: "Поиск",
+        tat: ""
     }
-
 }
+# options_text = {ru: "Чё хочешь?", tat: "Чё хочешь [на татарском]?"}
+# options_keyboard_text = {
+#     ru: {
+#         music: "Музыку",
+#         talk: "Поговорить",
+#         other: "Другое",
+#
+#     },
+#     tat: {
+#         music: "Музыку",
+#         talk: "Поговорить",
+#         other: "Другое"
+#     }
+#
+# }
 users = {}
 
 
@@ -37,7 +54,6 @@ def change_language_keyboard():
     markup.add(btn1, btn2)
 
     return markup
-
 
 
 def options_key_board(lang):
@@ -68,12 +84,19 @@ def change_language(message):
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.from_user.id, "Здравствуйте и Исәнмесез")
+    bot.send_message(message.from_user.id,
+                     "Здравствуйте и Исәнмесез\n\nДля того что бы изменить язык нажмите /setting\n\nТелне үзгәртү өчен, /settings басыгыз")
 
 
 @bot.message_handler(commands=['settings'])
 def settings(message):
     change_language(message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ['liked', 'advice', 'top', 'search'])
+def callback1(call):
+    if call.data == "liked":
+        bot.send_message(call.message.chat.id, "Книги")
 
 
 @bot.message_handler(content_types=['text'])
@@ -99,8 +122,6 @@ def start_handler(message):
     #             pass
     #         if message.text == options_keyboard_text[language][other]:
     #             pass
-
-
 
 
 bot.polling(none_stop=True, interval=0)
