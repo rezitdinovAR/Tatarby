@@ -2,14 +2,14 @@ CREATE TABLE books
 (
     book_id   integer,
 
-    title_ru  varchar(100),
-    title_tat varchar(100),
+    title_ru  varchar(1000),
+    title_tat varchar(1000),
 
-    desc_ru   varchar(1000),
-    desk_tat  varchar(1000),
+    desc_ru   text,
+    desk_tat  text,
 
-    url       varchar(100),
-    cover_utl varchar(100),
+    url       varchar(1000),
+    cover_utl varchar(1000),
 
     vector    double precision[],
 
