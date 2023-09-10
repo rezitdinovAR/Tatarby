@@ -63,7 +63,7 @@ options_text = {
 extra = {
     "no_page": {
         ru: "Страницы нет",
-        tat: ""
+        tat: "Битләр юк"
     }
 }
 
@@ -156,8 +156,8 @@ controls_keyboard_text = {
 
 def book_controls(book_id, page, language):
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton(text=controls_keyboard_text["next"][language], callback_data=f"controls:prev:{book_id}:{page}")
-    btn2 = types.InlineKeyboardButton(text=controls_keyboard_text["prev"][language], callback_data=f"controls:next:{book_id}:{page}")
+    btn1 = types.InlineKeyboardButton(text=controls_keyboard_text["next"][language], callback_data=f"controls:next:{book_id}:{page}")
+    btn2 = types.InlineKeyboardButton(text=controls_keyboard_text["prev"][language], callback_data=f"controls:prev:{book_id}:{page}")
     btn3 = types.InlineKeyboardButton(text=languages_keyboard_text[tat], callback_data=f"controls:tat:{book_id}:{page}")
     btn4 = types.InlineKeyboardButton(text=languages_keyboard_text[ru], callback_data=f"controls:ru:{book_id}:{page}")
     btn5 = types.InlineKeyboardButton(text=controls_keyboard_text["ilus"][language], callback_data=f"controls:ilus:{book_id}:{page}")
@@ -205,12 +205,10 @@ def open_book(message):
             user["cached_books"][book_id] = 0
     else:
         user["cached_books"] = {book_id: 0}
-
     save_user(message.from_user.id, user)
 
     text = books[book_id].pages[language][page]
 
-    print(text)
 
     with open(books[book_id].pages["audio"][page], "rb") as file:
         bot.send_audio(message.from_user.id, audio=file, caption=text, reply_markup=book_controls(book_id, page, language))
@@ -265,6 +263,7 @@ def flip_pages(call):
 
 
 
+
     cid = call.message.chat.id
     mid = call.message.message_id
 
@@ -278,12 +277,18 @@ def flip_pages(call):
 
         save_user(call.from_user.id, user)
 
+    language = get_language(call.from_user.id)
     if command == "prev":
+        if page == 0:
+            bot.answer_callback_query(callback_query_id=call.id, text=extra["no_page"][language], show_alert=True)
+            return
         page -= 1
     elif command == "next":
+        if page == len(book.pages[language]) - 1:
+            bot.answer_callback_query(callback_query_id=call.id, text=extra["no_page"][language], show_alert=True)
+            return
         page += 1
 
-    language = get_language(call.from_user.id)
 
     text = book.pages[language][page]
 
@@ -293,7 +298,6 @@ def flip_pages(call):
     else:
         user["cached_books"] = {book_id: 0}
     save_user(call.from_user.id, user)
-
     if command == "next" or command == "prev":
         with open(book.pages["audio"][page], "rb") as file:
             bot.edit_message_media(chat_id=cid, message_id=mid, media=types.InputMediaAudio(file))
