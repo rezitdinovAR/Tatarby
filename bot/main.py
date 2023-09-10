@@ -1,6 +1,18 @@
 import telebot
 from telebot import types
 
+import Translate
+from bot.book import Book
+
+import psycopg2
+
+# import stable_dif
+import poisk
+
+
+
+# stable_dif.init()
+
 bot = telebot.TeleBot('6388069124:AAHiZIx5t9YEMfr0TTDr37wkBVuyCSJ7olY')
 
 ru = "ru"
@@ -10,6 +22,7 @@ liked = "liked"
 advice = "advice"
 top = "top"
 search = "search"
+back = "back"
 
 languages_keyboard_text = {ru: 'Русский язык', tat: 'Татарча'}
 
@@ -26,8 +39,8 @@ menu_text = {
 
 options_text = {
     liked: {
-        ru: "Список избранного",
-        tat: "Сайланганнар исемлеге"
+        ru: "Начатые книги",
+        tat: "Башылган китаплар"
     },
     advice: {
         ru: "Посоветовать книгу",
@@ -40,6 +53,10 @@ options_text = {
     search: {
         ru: "Поиск",
         tat: "Эзләү"
+    },
+    back: {
+        ru: "Назад",
+        tat: "Артка"
     }
 }
 
@@ -50,49 +67,25 @@ extra = {
     }
 }
 
-books = {
-    1: {
-        "title": {
-            ru: "",
-            tat: ""
-        },
-        "desc": {
-            ru: "",
-            tat: ""
-        },
-        "cover": "",
-        "content": ""
-    },
-    2: {
-        "title": {
-            ru: "",
-            tat: ""
-        },
-        "desc": {
-            ru: "",
-            tat: ""
-        },
-        "cover": "",
-        "content": ""
-    },
-    3: {
-        "title": {
-            ru: "",
-            tat: ""
-        },
-        "desc": {
-            ru: "",
-            tat: ""
-        },
-        "cover": "",
-        "content": ""
-    }
-}
+books = {}
+
+
+def init_books():
+    conn = psycopg2.connect(dbname='Books', user='user', password='password', host='158.160.19.67', port="5438")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM books")
+    for i in cursor.fetchall():
+        book_id, title_ru, title_tat, desc_ru, desc_tat, url, cover_url, vector = i
+        print(book_id)
+
+        with open(f"books/{url.split('/')[-1]}", 'r', encoding="utf-8") as file:
+            books[book_id] = Book(int(book_id), title_ru, title_tat, desc_ru, desc_tat, url.split('/')[-1],
+                                  "".join(file.readlines()))
+
 
 users = {}
 
-with open("books/1984.txt", 'r', encoding="utf-8") as file:
-    books[1]["content"] = "".join(file.readlines())
+init_books()
 
 
 def get_user(user_id):
@@ -108,6 +101,9 @@ def save_user(user_id, user):
 
 def get_language(user_id):
     return get_user(user_id)["language"]
+
+
+
 
 
 def change_language_keyboard():
@@ -133,29 +129,46 @@ def options_key_board(lang):
 
     return markup
 
-
-def book_controls(book_id, l, r):
+def options_key_board_back(lang):
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton(text="◀️артка", callback_data=f"controls:prev:{book_id}:{l}:{r}")
-    btn2 = types.InlineKeyboardButton(text="алга▶️", callback_data=f"controls:next:{book_id}:{l}:{r}")
-    markup.add(btn1, btn2)
+
+    btn1 = types.InlineKeyboardButton(text=options_text[back][lang], callback_data=back)
+    markup.add(btn1)
 
     return markup
 
 
-def get_page(book_id, l, r, is_right):
-    book = books[book_id]
-    new = -1
-    if is_right:
-        for i in range(r, min(r + 1000, len(book["content"]))):
-            if book["content"][i] == " ":
-                new = i
-        return [book["content"][r: new], book_controls(book_id, r, new)]
+controls_keyboard_text = {
+    "next": {
+        ru: "Далее▶️",
+        tat: "Алга▶️"
+    },
+    "prev": {
+        ru: "◀️Назад",
+        tat: "◀️Артка"
+    },
+    "ilus": {
+        ru: "Оживить страницу",
+        tat: "Рәсем ясарга"
+    }
+}
+
+
+def book_controls(book_id, page, language):
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton(text=controls_keyboard_text["next"][language], callback_data=f"controls:prev:{book_id}:{page}")
+    btn2 = types.InlineKeyboardButton(text=controls_keyboard_text["prev"][language], callback_data=f"controls:next:{book_id}:{page}")
+    btn3 = types.InlineKeyboardButton(text=languages_keyboard_text[tat], callback_data=f"controls:tat:{book_id}:{page}")
+    btn4 = types.InlineKeyboardButton(text=languages_keyboard_text[ru], callback_data=f"controls:ru:{book_id}:{page}")
+    btn5 = types.InlineKeyboardButton(text=controls_keyboard_text["ilus"][language], callback_data=f"controls:ilus:{book_id}:{page}")
+    markup.add(btn2, btn1)
+    if language == ru:
+        markup.add(btn3)
     else:
-        for i in range(l, max(l - 1000, 0), -1):
-            if book["content"][i] == " ":
-                new = i
-        return [book["content"][new: l], book_controls(book_id, new, l)]
+        markup.add(btn4)
+    # markup.add(btn5)
+
+    return markup
 
 
 def change_language(message):
@@ -182,20 +195,52 @@ def settings(message):
 @bot.message_handler(func=lambda message: message.text.startswith("/book"))
 def open_book(message):
     book_id = int(message.text[5:])
-    text_controls = get_page(book_id, 0, 0, True)
-    bot.send_message(message.from_user.id, text_controls[0], reply_markup=text_controls[1])
+    language = get_language(message.from_user.id)
+    page = 0
+    user = get_user(message.from_user.id)
+    if "cached_books" in user:
+        if book_id in user["cached_books"]:
+            page = user["cached_books"][book_id]
+        else:
+            user["cached_books"][book_id] = 0
+    else:
+        user["cached_books"] = {book_id: 0}
+
+    save_user(message.from_user.id, user)
+
+    text = books[book_id].pages[language][page]
+
+    print(text)
+
+    with open(books[book_id].pages["audio"][page], "rb") as file:
+        bot.send_audio(message.from_user.id, audio=file, caption=text, reply_markup=book_controls(book_id, page, language))
 
 
-@bot.callback_query_handler(func=lambda call: call.data in [liked, advice, top, search])
+@bot.callback_query_handler(func=lambda call: call.data in [liked, advice, top, search, back])
 def callback1(call):
-    if call.data == liked:
-        bot.send_message(call.message.chat.id, "1984\n\n/book1")
+    language = get_language(call.from_user.id)
+    cid = call.message.chat.id
+    mid = call.message.message_id
+    if call.data == back:
+        bot.edit_message_text(chat_id=cid, message_id=mid, text=menu_text["options"][language], reply_markup=options_key_board(language))
+    elif call.data == liked:
+        if "cached_books" in get_user(call.from_user.id):
+            liked_books = [books[i] for i in get_user(call.from_user.id)["cached_books"].keys()]
+            bot.edit_message_text(chat_id=cid, message_id=mid, text="\n\n\n".join([i.to_string(language) for i in liked_books]), reply_markup=options_key_board_back(language))
+        else:
+            bot.answer_callback_query(callback_query_id=call.id, text='Вы пока не начали читать книги')
+            return
+
     elif call.data == advice:
-        bot.send_message(call.message.chat.id, "1984\n\n/book1")
+        bot.edit_message_text(chat_id=cid, message_id=mid, text="\n\n\n".join([i.to_string(language) for i in list(set(books.values()))]), reply_markup=options_key_board_back(language))
     elif call.data == top:
-        bot.send_message(call.message.chat.id, "1984\n\n/book1")
+        bot.edit_message_text(chat_id=cid, message_id=mid, text="\n\n\n".join([i.to_string(language) for i in books.values()]), reply_markup=options_key_board_back(language))
     elif call.data == search:
-        bot.send_message(call.message.chat.id, "1984\n\n/book1")
+        if language == tat:
+            bot.edit_message_text(chat_id=cid, message_id=mid, text="Табарга теләгән китапның исемен языгыз", reply_markup=options_key_board_back(language))
+        else:
+            bot.edit_message_text(chat_id=cid, message_id=mid, text="Напишите название книги, которую хотите найти", reply_markup=options_key_board_back(language))
+
     bot.answer_callback_query(callback_query_id=call.id, text='<3')
 
 
@@ -213,27 +258,58 @@ def callback_language(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("controls"))
 def flip_pages(call):
-    cont, side, book_id, l, r = call.data.split(":")
+    cont, command, book_id, page = call.data.split(":")
     book_id = int(book_id)
-    l = int(l)
-    r = int(r)
+    book = books[book_id]
+    page = int(page)
+
+
 
     cid = call.message.chat.id
     mid = call.message.message_id
 
-    text_controls = get_page(book_id, l, r, side == "next")
-    if len(text_controls[0]) == 0:
-        bot.answer_callback_query(callback_query_id=call.id, text=extra["no_page"][ru])
+    if command == "ilus":
+
         return
 
-    bot.edit_message_text(chat_id=cid, message_id=mid, text=text_controls[0], reply_markup=text_controls[1])
+    if command == tat or command == ru:
+        user = get_user(call.from_user.id)
+        user["language"] = command
+
+        save_user(call.from_user.id, user)
+
+    if command == "prev":
+        page -= 1
+    elif command == "next":
+        page += 1
+
+    language = get_language(call.from_user.id)
+
+    text = book.pages[language][page]
+
+    user = get_user(call.from_user.id)
+    if "cached_books" in user:
+        user["cached_books"][book_id] = page
+    else:
+        user["cached_books"] = {book_id: 0}
+    save_user(call.from_user.id, user)
+
+    if command == "next" or command == "prev":
+        with open(book.pages["audio"][page], "rb") as file:
+            bot.edit_message_media(chat_id=cid, message_id=mid, media=types.InputMediaAudio(file))
+    bot.edit_message_caption(chat_id=cid, message_id=mid, caption=text,
+                             reply_markup=book_controls(book_id, page, language))
+
     bot.answer_callback_query(callback_query_id=call.id, text="...")
 
 
-# @bot.message_handler(content_types=['text'])
-# def start_handler(message):
-#     with open("audio.ogg", "rb") as file:
-#         bot.send_audio(message.from_user.id, audio=file, caption="Шамиль", reply_markup=book_controls(1, 0, 1000))
+@bot.message_handler(content_types=['text'])
+def start_handler(message):
+    language = get_language(message.from_user.id)
+
+    a = poisk.poisk(message.text, books)
+    bot.send_message(message.from_user.id, text="\n\n\n".join([i.to_string(language) for i in a]), reply_markup=options_key_board_back(language))
+
 
 
 if __name__ == '__main__':
